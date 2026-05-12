@@ -1,0 +1,76 @@
+---
+title: "Housing Affordability — Massachusetts Zoning Analysis"
+author: "Tara"
+date: '2026'
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+# if (!require("stargazer")) install.packages("stargazer")
+library(stargazer)
+```
+
+## Load Data- load my dataset. 
+Load the dataset created by a Python script that pulled U.S. Census data for Massachusetts census tracts. Each row represents one census tract (a small neighborhood-level area), and each column is a measurement like rent, home value, or income. Print the number of tracts and column names to confirm the data loaded correctly. 
+
+```{r, echo=FALSE}
+data <- read.csv("housing_data.csv")
+cat("Tracts loaded:", nrow(data), "\n")
+# cat("Columns:", paste(names(data), collapse = ","), "\n")
+```
+
+## OLS Regressions
+
+Run three OLS regressions to test whether permissive zoning — captured by the variable `treated_dupac`, which equals 1 if the tract's town allows duplexes and apartments more freely is associated with lower rents, lower home prices, and more multifamily housing. Each regression controls for income and other neighborhood characteristics so we are comparing similar areas that differ mainly in their zoning policy.
+
+**Regression 1** tests the effect of zoning on log median rent, controlling for log income and renter share.
+**Regression 2** tests the effect of zoning on log median home value, with the same controls.
+**Regression 3** tests the effect of zoning on multifamily housing share, controlling for log income and poverty rate.
+
+We use log-transformed rent and home value because housing prices are skewed — logging them makes the relationship more linear and coefficients easier to interpret as approximate percentage differences.
+
+```{r}
+reg1 <- lm(log_rent  ~ treated_dupac + log_income + renter_share, data = data)
+reg2 <- lm(log_value ~ treated_dupac + log_income + renter_share, data = data)
+reg3 <- lm(mf_share  ~ treated_dupac + log_income + poverty_rate, data = data)
+```
+
+## Regression Summaries
+#Print detailed summary for each regression. Shows the estimated coefficient for each variable, its standard error, and its p-value. A p-value below 0.05 is conventionally considered statistically significant, meaning the result is unlikely to be due to chance. The R-squared value tells us how much of the variation in the outcome the model explains.
+
+## Stargazer Results Table
+Display all three regressions side by side in one clean table. Easy to compare the effect of zoning across all three outcomes at once. The variable names are replaced with readable labels, and the table includes a footnote describing the data source.
+
+
+```{r results='asis'}
+stargazer(reg1, reg2, reg3,
+          type             = "latex",
+          header           = FALSE,
+          dep.var.caption = "",
+          title            = "Effect of Permissive Zoning on Housing
+          Outcomes — Massachusetts Tracts (ACS 2018)",
+          dep.var.labels   = c("Log Rent", "Log House Price",
+                               "Multifamily Share"),
+          covariate.labels = c("Permissive Zoning (DUPAC)",
+                               "Log Median Income",
+                               "Renter Share",
+                               "Poverty Rate"),
+          omit.stat        = c("f", "ser"),
+          digits           = 3,
+          notes            = "OLS regressions. 1,291 Massachusetts 
+          census tracts. ACS 2018 5-year estimates.",
+          notes.align      = "l")
+```
+
+## Interpretation
+
+Regression 1 Log Rent Holding income and renter share constant, tracts with permissive zoning have lower median rent. The treated_dupac coefficient gives the percentage difference.
+
+Regression 2 Log House Price Holding income and renter share constant, tracts with permissive zoning have lower home values. The treated_dupac coefficient gives the percentage difference.
+
+Regression 3 Multifamily Share Holding income and poverty rate constant, tracts with permissive zoning have a higher multifamily housing share. The treated_dupac coefficient gives the percentage point difference.
+
